@@ -1,0 +1,434 @@
+---
+# © Copyright IBM Corporation 2017
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This master template creates a VPC infrastructure for a multi-AZ, multi-tier
+  deployment of IBM Integration Bus on AWS EC2, with EFS. It deploys a VPC with bastions
+  and the IBM Integration Bus solution. The IBM Integration Bus solution is configured to use an EFS for persistant
+  storage of the Integration Node and Queue Manager. **WARNING** This template creates EC2 instances and related
+  resources. You will be billed for the AWS resources used if you create a stack from
+  this template. IBM Integration Bus is licensed seperatley, please review the terms and conditions
+  here (http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?la_formnum=&li_formnum=L-DFOX-APNKQH&title=IBM+Integration+Bus+for+Developers.&l=en)
+  for further details.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Software License Agreement
+      Parameters:
+      - LicenseAgreement
+    - Label:
+        default: VPC & Bastion Configuration
+      Parameters:
+      - AvailabilityZones
+      - AdminRemoteAccessCIDR
+      - AdminConsoleAccessCIDR
+      - ClientAppAccessCIDR
+      - KeyPairName
+    - Label:
+        default: IBM Integration Bus Instance Configuration
+      Parameters:
+      - InstanceName
+      - InstanceOwner
+      - InstanceType
+      - IntegrationNodeName
+      - IntegrationServerName
+      - IIBWebUIUsername
+      - IIBWebUIPassword
+      - IIBAdminPassword
+    - Label:
+        default: Integration Node IBM MQ Queue Manager Configuration
+      Parameters:
+      - MQConsoleUsername
+      - MQConsolePassword
+      - MQAdminPassword
+      - MQAppPassword
+    - Label:
+        default: AWS Deployment Configuration
+      Parameters:
+      - S3BucketName
+      - S3KeyPrefix
+    ParameterLabels:
+      AdminConsoleAccessCIDR:
+        default: Allowed Admin Web Console External Access CIDR
+      AdminRemoteAccessCIDR:
+        default: Allowed Bastion External Access CIDR
+      AvailabilityZones:
+        default: Availability Zones
+      ClientAppAccessCIDR:
+        default: Allowed Client Application External Access CIDR
+      InstanceName:
+        default: Instance Name Tag
+      InstanceOwner:
+        default: Instance Owner Tag
+      InstanceType:
+        default: Instance type
+      MQConsoleUsername:
+        default: Web Console Username
+      MQConsolePassword:
+        default: Web Console Password
+      MQAdminPassword:
+        default: Admin User Password
+      MQAppPassword:
+        default: Application User Password
+      IntegrationNodeName:
+        default: Integration Node Name
+      IntegrationServerName:
+        default: Integration Server Name
+      KeyPairName:
+        default: Key Pair Name
+      LicenseAgreement:
+        default: License Agreement
+      IIBWebUIUsername:
+        default: Web User Interface Username
+      IIBWebUIPassword:
+        default: Web User Interface Password
+      IIBAdminPassword:
+        default: Admin User Password
+      S3BucketName:
+        default: S3 Bucket Name
+      S3KeyPrefix:
+        default: S3 Key Prefix
+Parameters:
+  AdminRemoteAccessCIDR:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Description: The IP address range allowed to access the Integration Node via 
+      the Bastion Server. We recommend that you set this value to a trusted IP range (0.0.0.0/0 is no restriction).
+    Type: String
+  AdminConsoleAccessCIDR:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Description: The IP address range allowed to access the IBM Integration Bus Web User Interface via 
+      the ELB. We recommend that you set this value to a trusted IP range (0.0.0.0/0 is no restriction).
+    Type: String
+  AvailabilityZones:
+    Description: List of Availability Zones to use for the subnets in the VPC. Only
+      two Availability Zones are used for this deployment, and the logical order of
+      your selections is preserved.
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+  ClientAppAccessCIDR:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Description: The IP address range allowed to access the IBM Integration Bus Client Applications.
+      We recommend that you set this value to a trusted IP range (0.0.0.0/0 is no restriction).
+    Type: String
+  InstanceType:
+    Description: Instance type for the IBM Integration Bus instance that is deployed to EC2.
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t1.micro
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+    - m1.small
+    - m1.medium
+    - m1.large
+    - m1.xlarge
+    - m2.xlarge
+    - m2.2xlarge
+    - m2.4xlarge
+    - m3.medium
+    - m3.large
+    - m3.xlarge
+    - m3.2xlarge
+    - m4.large
+    - m4.xlarge
+    - m4.2xlarge
+    - m4.4xlarge
+    - m4.10xlarge
+    - c1.medium
+    - c1.xlarge
+    - c3.large
+    - c3.xlarge
+    - c3.2xlarge
+    - c3.4xlarge
+    - c3.8xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - g2.2xlarge
+    - g2.8xlarge
+    - r3.large
+    - r3.xlarge
+    - r3.2xlarge
+    - r3.4xlarge
+    - r3.8xlarge
+    - i2.xlarge
+    - i2.2xlarge
+    - i2.4xlarge
+    - i2.8xlarge
+    - d2.xlarge
+    - d2.2xlarge
+    - d2.4xlarge
+    - d2.8xlarge
+    - hi1.4xlarge
+    - hs1.8xlarge
+    - cr1.8xlarge
+    - cc2.8xlarge
+    - cg1.4xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+  MQConsoleUsername:
+    Description: Admin username used for accessing IBM MQ Web Console and REST API.
+    Default: mqconsoleadmin
+    Type: String
+  MQConsolePassword:
+    Description: Admin password to access the IBM MQ Web Console (Min. Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+    ConstraintDescription: The password should be between 8 and 12 characters.
+  MQAdminPassword:
+    Description: Password for predefined mqadmin user used to administer IBM MQ (Min.
+      Length of 8 Characters, Max Length of 12 Characters)
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+    ConstraintDescription: The password should be between 8 and 12 characters.
+  MQAppPassword:
+    Description: Password for predefined mqapp user used by applications to securely
+          connect to IBM MQ (Min. Length of 8 Characters, Max Length of 12 Characters)
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+    ConstraintDescription: The password should be between 8 and 12 characters.
+  IntegrationNodeName:
+    Description: Name of the Integration Node.
+    Type: String
+    Default: IIBNode
+    ConstraintDescription: The Integration Node must have a valid name.
+  IntegrationServerName:
+    Description: Name of the Integration server.
+    Type: String
+    Default: IIBServ1
+    ConstraintDescription: The Integration Server must have a valid name.
+  KeyPairName:
+    Description: The name of an existing public/private key pair, which allows you
+      to securely connect to your instance after it launches
+    Type: AWS::EC2::KeyPair::KeyName
+    MinLength: 1
+    ConstraintDescription: You must provide a valid Key Pair name.
+  LicenseAgreement:
+    Description: I have read and agree to the license terms for IBM Integration Bus (www.my-license.com).
+    Type: String
+    Default: '-'
+    AllowedValues:
+    - I agree
+    - '-'
+    ConstraintDescription: must answer 'I agree'
+  IIBWebUIUsername:
+    Description: Admin username used for accessing the IBM Integration Bus web user interface.
+    Default: iibwebuiadmin
+    Type: String
+  IIBWebUIPassword:
+    Description: Admin password to access the IBM Integration Bus web user interface (Min. Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+    ConstraintDescription: The password should be between 8 and 12 characters.
+  IIBAdminPassword:
+    Description: Password for predefined iib user used to administer IBM Integration Bus (Min.
+      Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+    ConstraintDescription: The password should be between 8 and 12 characters.
+  InstanceName:
+    Description: Value for the name tag of the IBM Integration Bus instance that is deployed to EC2.
+    Type: String
+    Default: iib_server
+  InstanceOwner:
+    Description: Value for the owner tag of the IBM Integration Bus instance that is deployed to EC2. We recommend that you provide a value for this field.
+    Type: String
+  S3BucketName:
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
+    ConstraintDescription: The S3 bucket name can include numbers, lowercase
+      letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen
+      (-).
+    Default: iib-fast-deploy-aws
+    Description: S3 bucket name for the deployment assets. This string can include
+      numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start
+      or end with a hyphen (-).
+    Type: String
+  S3KeyPrefix:
+    AllowedPattern: ^[0-9a-zA-Z-/]*$
+    ConstraintDescription: The S3 key prefix can include numbers, lowercase letters,
+      uppercase letters, hyphens (-), and forward slash (/).
+    Default: ibm/iib/latest/
+    Description: S3 key prefix for the deployment assets. The key prefix
+      can include numbers, lowercase letters, uppercase letters, hyphens (-), and
+      forward slash (/).
+    Type: String
+Rules:
+  LicenseAgreementRule:
+    Assertions:
+    - Assert:
+        Fn::Contains:
+        - - I agree
+        - Ref: LicenseAgreement
+      AssertDescription: User must agree to the terms of the license agreement.
+  EFSSupportedRegionRule:
+    Assertions:
+    - Assert:
+        Fn::Contains:
+        - - us-east-1
+          - us-east-2
+          - us-west-2
+          - eu-west-1
+          - ap-southeast-2
+        - !Ref AWS::Region
+      AssertDescription: This fast deployment utilizes Amazon EFS which is only available
+        in the US East (N. Virginia), US East (Ohio), US West (Oregon), EU (Ireland)
+        and Asia Pacific (Sydney) regions. Please launch the stack in one of these
+        regions to continue.
+Conditions:
+  EmptyKeypairRule: !Not [!Equals [!Ref KeyPairName, ""]]
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: EmptyKeypairRule
+    Properties:
+      TemplateURL:
+        Fn::Sub: https://${S3BucketName}.s3.amazonaws.com/${S3KeyPrefix}submodules/quickstart-aws-vpc/templates/aws-vpc.template
+      Parameters:
+        AvailabilityZones:
+          Fn::Join:
+          - ','
+          - Ref: AvailabilityZones
+        KeyPairName:
+          Ref: KeyPairName
+        NumberOfAZs: '2'
+  BastionStack:
+    DependsOn: VPCStack
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        Fn::Sub: https://${S3BucketName}.s3.amazonaws.com/${S3KeyPrefix}submodules/quickstart-linux-bastion/templates/linux-bastion.template
+      Parameters:
+        BastionAMIOS:
+          Amazon-Linux-HVM
+        BastionInstanceType:
+          t2.micro
+        EnableBanner: true
+        KeyPairName:
+          Ref: KeyPairName
+        PublicSubnet1ID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.PublicSubnet1ID
+        PublicSubnet2ID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.PublicSubnet2ID
+        QSS3BucketName:
+          Ref: S3BucketName
+        QSS3KeyPrefix:
+          Fn::Sub: ${S3KeyPrefix}submodules/quickstart-linux-bastion/
+        RemoteAccessCIDR:
+          Ref: AdminRemoteAccessCIDR
+        VPCID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.VPCID
+  IIBStack:
+    DependsOn: BastionStack
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        Fn::Sub: https://${S3BucketName}.s3.amazonaws.com/${S3KeyPrefix}templates/iib.template
+      Parameters:
+        AdminConsoleAccessCIDR:
+          Ref: AdminConsoleAccessCIDR
+        BastionSecurityGroupID:
+          Fn::GetAtt:
+          - BastionStack
+          - Outputs.BastionSecurityGroupID
+        ClientAppAccessCIDR:
+          Ref: ClientAppAccessCIDR
+        KeyPairName:
+          Ref: KeyPairName
+        LicenseAgreement:
+          Ref: LicenseAgreement
+        MQConsoleUsername:
+          Ref: MQConsoleUsername
+        MQConsolePassword:
+          Ref: MQConsolePassword
+        MQAdminPassword:
+          Ref: MQAdminPassword
+        MQAppPassword:
+          Ref: MQAppPassword
+        IIBWebUIUsername:
+          Ref: IIBWebUIUsername
+        IIBWebUIPassword:
+          Ref: IIBWebUIPassword
+        IIBAdminPassword:
+          Ref: IIBAdminPassword
+        InstanceOwner:
+          Ref: InstanceOwner
+        InstanceName:
+          Ref: InstanceName
+        IntegrationNodeName:
+          Ref: IntegrationNodeName
+        IntegrationServerName:
+          Ref: IntegrationServerName
+        PrivateSubnet1ID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.PrivateSubnet1AID
+        PrivateSubnet2ID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.PrivateSubnet2AID
+        PublicSubnet1ID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.PublicSubnet1ID
+        PublicSubnet2ID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.PublicSubnet2ID
+        VPCID:
+          Fn::GetAtt:
+          - VPCStack
+          - Outputs.VPCID
+Outputs:
+  IIBWebUiURL:
+    Description: Access the IBM Integration Bus Web UI via the Elastic Load Balancer.
+    Value: !GetAtt IIBStack.Outputs.IIBWebUiURL
+  IIBRestApiURL:
+    Description: Access the IBM Integration Bus REST API via the Elastic Load Balancer.
+    Value: !GetAtt IIBStack.Outputs.IIBRestApiURL
+  SampleApplication:
+    Description: Access a sample application on IBM Integration Bus via the Elastic Load Balancer.
+    Value: !GetAtt IIBStack.Outputs.SampleApplication
+  MQWebConsoleURL:
+    Description: Access the IBM MQ Web Console via the Elastic Load Balancer.
+    Value: !GetAtt IIBStack.Outputs.MQWebConsoleURL
+  MQRestApiIURL:
+    Description: Access the the IBM MQ REST API via the Elastic Load Balancer.
+    Value: !GetAtt IIBStack.Outputs.MQRestApiIURL
+  ReadMeInfo:
+    Description: 'For more information and details visit:'
+    Value: https://github.com/ot4i/iib-fast-deploy-aws/
+...

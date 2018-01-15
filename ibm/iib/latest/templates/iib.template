@@ -1,0 +1,726 @@
+---
+# © Copyright IBM Corporation 2017
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template creates a deployment of IBM Integration Bus version 10.0.0.10 on AWS EC2, with EFS,
+  within an existing VPC and Bastion server environment. The IBM Integration Bus solution is configured
+  to use an EFS for persistant storage of the Integration Node and Queue Manager. **WARNING** This template creates EC2
+  instances and related resources. You will be billed for the AWS resources used if you create
+  a stack from this template. IBM Integration Bus is licensed seperatley, please review the terms and conditions
+  here (www.my-license.com)
+  for further details. (qs-1nhqnkuii)
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Software License Agreement
+      Parameters:
+      - LicenseAgreement
+    - Label:
+        default: Network Configuration
+      Parameters:
+      - VPCID
+      - PrivateSubnet1ID
+      - PrivateSubnet2ID
+      - PublicSubnet1ID
+      - PublicSubnet2ID
+      - AdminConsoleAccessCIDR
+      - ClientAppAccessCIDR
+    - Label:
+        default: Bastion Configuration
+      Parameters:
+      - KeyPairName
+      - BastionSecurityGroupID
+    - Label:
+        default: IBM Integration Bus Instance Configuration
+      Parameters:
+      - InstanceName
+      - InstanceOwner
+      - InstanceType
+      - IntegrationNodeName
+      - IntegrationServerName
+      - IIBWebUIUsername
+      - IIBWebUIPassword
+      - IIBAdminPassword
+    - Label:
+        default: Integration Node IBM MQ Queue Manager Configuration
+      Parameters:
+      - MQConsoleUsername
+      - MQConsolePassword
+      - MQAdminPassword
+      - MQAppPassword
+    ParameterLabels:
+      AdminConsoleAccessCIDR:
+        default: Allowed Admin Web Console External Access CIDR
+      BastionSecurityGroupID:
+        default: Bastion Security Group ID
+      ClientAppAccessCIDR:
+        default: Allowed Client Application External Access CIDR
+      InstanceName:
+        default: Instance Name Tag
+      InstanceType:
+        default: Instance type
+      MQConsoleUsername:
+        default: Web Console Username
+      MQConsolePassword:
+        default: Web Console Password
+      MQAdminPassword:
+        default: Admin User Password
+      MQAppPassword:
+        default: Application User Password
+      IntegrationNodeName:
+        default: Integration Node Name
+      IntegrationServerName:
+        default: Integration Server Name
+      KeyPairName:
+        default: SSH Key Name
+      LicenseAgreement:
+        default: License Agreement
+      IIBWebUIUsername:
+        default: Web User Interface Username
+      IIBWebUIPassword:
+        default: Web User Interface Password
+      IIBAdminPassword:
+        default: Admin User Password
+      InstanceOwner:
+        default: Instance Owner
+      PrivateSubnet1ID:
+        default: Private Subnet 1 ID
+      PrivateSubnet2ID:
+        default: Private Subnet 2 ID
+      PublicSubnet1ID:
+        default: Public Subnet 1 ID
+      PublicSubnet2ID:
+        default: Public Subnet 2 ID
+      IntegrationNodeName:
+        default: Integration Node Name
+      IntegrationServerName:
+        default: Integration Server Name
+      VPCID:
+        default: VPC ID
+Parameters:
+  AdminConsoleAccessCIDR:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Description: The IP address range allowed to access the IBM Integration Bus Web User Interface via 
+      the ELB. We recommend that you set this value to a trusted IP range (0.0.0.0/0 is no restriction).
+    Type: String
+  BastionSecurityGroupID:
+    Description: ID of the bastion host security group to enable SSH connections (e.g.
+      sg-7f16e910).
+    Type: AWS::EC2::SecurityGroup::Id
+    MinLength: 1
+    ConstraintDescription: You must provide a valid bastion security group ID.
+  ClientAppAccessCIDR:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Description: The CIDR IP range that is permitted to allow access for IBM Integration Bus Client
+      Applications. We recommend that you set this value to a trusted IP range.
+    Type: String
+  InstanceType:
+    Description: EC2 instance type for the IBM Integration Bus server .
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t1.micro
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+    - m1.small
+    - m1.medium
+    - m1.large
+    - m1.xlarge
+    - m2.xlarge
+    - m2.2xlarge
+    - m2.4xlarge
+    - m3.medium
+    - m3.large
+    - m3.xlarge
+    - m3.2xlarge
+    - m4.large
+    - m4.xlarge
+    - m4.2xlarge
+    - m4.4xlarge
+    - m4.10xlarge
+    - c1.medium
+    - c1.xlarge
+    - c3.large
+    - c3.xlarge
+    - c3.2xlarge
+    - c3.4xlarge
+    - c3.8xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - g2.2xlarge
+    - g2.8xlarge
+    - r3.large
+    - r3.xlarge
+    - r3.2xlarge
+    - r3.4xlarge
+    - r3.8xlarge
+    - i2.xlarge
+    - i2.2xlarge
+    - i2.4xlarge
+    - i2.8xlarge
+    - d2.xlarge
+    - d2.2xlarge
+    - d2.4xlarge
+    - d2.8xlarge
+    - hi1.4xlarge
+    - hs1.8xlarge
+    - cr1.8xlarge
+    - cc2.8xlarge
+    - cg1.4xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+  InstanceName:
+    Description: Value for the name tag of the IBM Integration Bus instance that is deployed to EC2.
+    Type: String
+    Default: iib_server
+  MQConsoleUsername:
+    Description: Admin username used for accessing Web Console and REST Api.
+    Default: mqconsoleadmin
+    Type: String
+  MQConsolePassword:
+    Description: Admin password to access the MQ Web Console (Min. Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+  MQAdminPassword:
+    Description: Password for predefined mqadmin user used to administer MQ (Min.
+      Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+  MQAppPassword:
+    Description: Password for predefined mqapp user used by applications to securely
+      connect to MQ (Min. Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+  IntegrationNodeName:
+    Description: Name of the Integration Node.
+    Type: String
+    Default: IIBNode
+    ConstraintDescription: must be a valid Integration Node name.
+  IntegrationServerName:
+    Description: Name of the Integration Server.
+    Type: String
+    Default: IIBServ1
+    ConstraintDescription: must be a valid Integration Server name.
+  KeyPairName:
+    Description: Name of an existing EC2 key pair. All instances will launch with
+      this key pair.
+    Type: AWS::EC2::KeyPair::KeyName
+    MinLength: 1
+    ConstraintDescription: You must provide a valid Key Pair name.
+  LicenseAgreement:
+    Description: I have read and agree to the license terms for IBM Integration Bus (www.my-license.com).
+    Type: String
+    Default: '-'
+    AllowedValues:
+    - I agree
+    - '-'
+    ConstraintDescription: must answer 'I agree'
+  IIBWebUIUsername:
+    Description: Admin username used for accessing the IBM Integration Bus web user interface.
+    Default: iibwebuiadmin
+    Type: String
+  IIBWebUIPassword:
+    Description: Admin Password to access the IBM Integration Bus web user interface (Min. Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+  IIBAdminPassword:
+    Description: Password for predefined iib user used to administer IBM Integration Bus (Min.
+      Length of 8 Characters, Max Length of 12 Characters).
+    Type: String
+    MinLength: 8
+    MaxLength: 12
+    NoEcho: true
+  InstanceOwner:
+    Description: Value for the owner tag of the IBM Integration Bus instance that is deployed to EC2.
+    Type: String
+  PrivateSubnet1ID:
+    Description: ID of private subnet 1 in Availability Zone 1 for the IBM Integration Bus instances
+      (e.g. subnet-a0246dcd).
+    Type: AWS::EC2::Subnet::Id
+    MinLength: 1
+    ConstraintDescription: You must provide a valid private subnet ID.
+  PrivateSubnet2ID:
+    Description: ID of private subnet 2 in Availability Zone 2 for the IBM Integration Bus instances
+      (e.g. subnet-b1f432cd)
+    Type: AWS::EC2::Subnet::Id
+    MinLength: 1
+    ConstraintDescription: You must provide a valid private subnet ID.
+  PublicSubnet1ID:
+    Description: ID of public subnet 1 in Availability Zone 1 for the ELB load balancer
+      (e.g. subnet-9bc642ac).
+    Type: AWS::EC2::Subnet::Id
+    MinLength: 1
+    ConstraintDescription: You must provide a valid public subnet ID.
+  PublicSubnet2ID:
+    Description: ID of public subnet 2 in Availability Zone 2 for the ELB load balancer
+      (e.g. subnet-e3246d8e).
+    Type: AWS::EC2::Subnet::Id
+    MinLength: 1
+    ConstraintDescription: You must provide a valid public subnet ID.
+  VPCID:
+    Description: ID of your existing VPC for deployment.
+    Type: AWS::EC2::VPC::Id
+    MinLength: 1
+    ConstraintDescription: You must provide a valid VPC ID.
+Rules:
+  LicenseAgreementRule:
+    Assertions:
+    - Assert:
+        Fn::Contains:
+        - - I agree
+        - Ref: LicenseAgreement
+      AssertDescription: User must agree to the terms of the license agreement.
+  EFSSupportedRegionRule:
+    Assertions:
+    - Assert:
+        Fn::Contains:
+        - - us-east-1
+          - us-east-2
+          - us-west-2
+          - eu-west-1
+          - ap-southeast-2
+        - !Ref AWS::Region
+      AssertDescription: This Quick Start utilizes Amazon EFS which is only available
+        in the US East (N. Virginia), US East (Ohio), US West (Oregon), EU (Ireland)
+        and Asia Pacific (Sydney) regions. Please launch the stack in one of these
+        regions
+  SubnetsInVPC:
+    Assertions:
+    - Assert:
+        Fn::EachMemberIn:
+        - Fn::ValueOfAll:
+          - AWS::EC2::Subnet::Id
+          - VpcId
+        - Fn::RefAll: AWS::EC2::VPC::Id
+      AssertDescription: All subnets must in the VPC
+Mappings:
+  AWSAMIRegionMap:
+    AMI:
+      IIB10US1604: IIB_10_Ubuntu_1604
+    ap-southeast-2:
+      IIB10US1604: ami-fb3fc399
+    eu-west-1:
+      IIB10US1604: ami-8373ecfa
+    us-east-1:
+      IIB10US1604: ami-6aa88810
+    us-east-2:
+      IIB10US1604: ami-9f240efa
+    us-west-2:
+      IIB10US1604: ami-92f848ea
+Conditions:
+  GovCloudCondition:
+    Fn::Equals:
+    - Ref: AWS::Region
+    - us-gov-west-1
+Resources:
+  IIBMainLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: Instance-Logging-Role
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            - 'logs:DescribeLogStreams'
+            Resource: 
+              Fn::Sub:
+              - arn:${Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:IIBMainLogGroup:*
+              - Partition:
+                  Fn::If:
+                  - GovCloudCondition
+                  - aws-us-gov
+                  - aws
+  InstanceRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ReportHealthPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: autoscaling:SetInstanceHealth
+          Resource:
+            Fn::Sub: arn:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/${AutoScalingGroup}
+      Roles:
+      - !Ref InstanceRole
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref InstanceRole
+  IIBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCID
+      GroupDescription: Enable SSH access via port 22, and access to 1414, 9443 for MQ and 4417, 7800 for IIB.
+        via ELB
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        SourceSecurityGroupId: !Ref BastionSecurityGroupID
+      - IpProtocol: tcp
+        FromPort: '1414'
+        ToPort: '1414'
+        SourceSecurityGroupId: !Ref IIBELBSecurityGroup
+      - IpProtocol: tcp
+        FromPort: '9443'
+        ToPort: '9443'
+        SourceSecurityGroupId: !Ref IIBELBSecurityGroup
+      - IpProtocol: tcp
+        FromPort: '4417'
+        ToPort: '4417'
+        SourceSecurityGroupId: !Ref IIBELBSecurityGroup
+      - IpProtocol: tcp
+        FromPort: '7800'
+        ToPort: '7800'
+        SourceSecurityGroupId: !Ref IIBELBSecurityGroup
+  IIBELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCID
+      GroupDescription: Enable access via port 1414 and 9443 for MQ and 4417, 7800 for IIB via ELB
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '1414'
+        ToPort: '1414'
+        CidrIp: !Ref ClientAppAccessCIDR
+      - IpProtocol: tcp
+        FromPort: '9443'
+        ToPort: '9443'
+        CidrIp: !Ref AdminConsoleAccessCIDR
+      - IpProtocol: tcp
+        FromPort: '4417'
+        ToPort: '4417'
+        CidrIp: !Ref AdminConsoleAccessCIDR
+      - IpProtocol: tcp
+        FromPort: '7800'
+        ToPort: '7800'
+        CidrIp: !Ref ClientAppAccessCIDR
+  MountTargetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCID
+      GroupDescription: Security group for mount target
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '2049'
+        ToPort: '2049'
+        SourceSecurityGroupId: !Ref IIBSecurityGroup
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          files:
+            /usr/local/etc/mq-configure-script.sh:
+              content:
+                Fn::Sub: |
+                  #!/bin/bash
+                  QMGR_NAME=${IntegrationNodeName}_QM
+                  FILE_SYSTEM=${FileSystem}
+                  AWS_REGION=${AWS::Region}
+                  AWS_STACK_NAME=${AWS::StackName}
+                  MQ_CONSOLE_USER='${MQConsoleUsername}'
+                  MQ_CONSOLE_PASSWORD='${MQConsolePassword}'
+                  MQ_ADMIN_PASSWORD='${MQAdminPassword}'
+                  MQ_APP_PASSWORD='${MQAppPassword}'
+                  configure-mq-aws $QMGR_NAME $FILE_SYSTEM $AWS_REGION $MQ_CONSOLE_USER $MQ_CONSOLE_PASSWORD $MQ_ADMIN_PASSWORD $MQ_APP_PASSWORD
+              mode: '000700'
+              owner: root
+              group: root
+            /usr/local/etc/iib-configure-script.sh:
+              content:
+                Fn::Sub: |
+                  #!/bin/bash
+                  IIB_NODE_NAME=${IntegrationNodeName}
+                  IIB_INTEGRATION_SERVER_NAME=${IntegrationServerName}
+                  QMGR_NAME=${IntegrationNodeName}_QM
+                  AWS_REGION=${AWS::Region}
+                  AWS_STACK_NAME=${AWS::StackName}
+                  IIB_WEBUI_USER='${IIBWebUIUsername}'
+                  IIB_WEBUI_PASSWORD='${IIBWebUIPassword}'
+                  IIB_ADMIN_PASSWORD='${IIBAdminPassword}'
+                  configure-iib-aws $IIB_NODE_NAME $IIB_INTEGRATION_SERVER_NAME $QMGR_NAME $AWS_REGION $IIB_ADMIN_PASSWORD $IIB_WEBUI_USER $IIB_WEBUI_PASSWORD
+              mode: '000700'
+              owner: root
+              group: root
+            /etc/awslogs/awslogs.conf:
+              content: !Sub |
+                [general]
+                state_file= /var/log/agent-state
+                # Capture syslogs
+                [/var/log/cfn-init-cmd.log]
+                file = /var/log/cfn-init-cmd.log
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-cfn-init-cmd
+                [/var/log/syslog]
+                file = /var/log/syslog
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-syslog
+                # Capture /var/mqm logs
+                [/var/mqm/errors/AMQERR01.log]
+                file = /var/mqm/errors/AMQERR01.LOG
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-var-mqm-errors
+                [/var/mqm/errors/AMQERR02.log]
+                file = /var/mqm/errors/AMQERR02.LOG
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-var-mqm-errors
+                [/var/mqm/errors/AMQERR03.log]
+                file = /var/mqm/errors/AMQERR03.LOG
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-var-mqm-errors
+                 # Capture /HA/mqm/qmgrs/<QueueManagerName> logs
+                [/HA/mqm/qmgrs/${IntegrationNodeName}_QM/errors/AMQERR01.log]
+                file = /HA/mqm/qmgrs/${IntegrationNodeName}_QM/errors/AMQERR01.LOG
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-ha-mqm-errors
+                [/HA/mqm/qmgrs/${IntegrationNodeName}_QM/AMQERR02.log]
+                file = /HA/mqm/qmgrs/${IntegrationNodeName}_QM/errors/AMQERR02.LOG
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-ha-mqm-errors
+                [/HA/mqm/qmgrs/${IntegrationNodeName}_QM/AMQERR03.log]
+                file = /HA/mqm/qmgrs/${IntegrationNodeName}_QM/errors/AMQERR03.LOG
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-ha-mqm-errors
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/awslogs/awscli.conf:
+              content: !Sub |
+                [plugins]
+                cwlogs = cwlogs
+                [default]
+                region = ${AWS::Region}
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.LaunchConfiguration.Metadata.AWS::CloudFormation::Init
+                action=/usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource LaunchConfiguration --region ${AWS::Region} -runas=root
+          commands:
+            01_RunMQConfig:
+              command: /usr/local/etc/mq-configure-script.sh
+              ignoreErrors: "true"
+            02_RunIIBConfig:
+              command: /usr/local/etc/iib-configure-script.sh
+            03_RmMQConfig:
+              command: rm /usr/local/etc/mq-configure-script.sh
+            04_RmIIBConfig:
+              command: rm /usr/local/etc/iib-configure-script.sh
+    Properties:
+      AssociatePublicIpAddress: false
+      ImageId:
+        Fn::FindInMap:
+        - AWSAMIRegionMap
+        - !Ref AWS::Region
+        - IIB10US1604
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SecurityGroups:
+      - !Ref IIBSecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash
+            # Update existing installed packages
+            apt-get update -y
+            apt-get upgrade -y
+
+            # Helper function
+            function error_exit
+            {
+              /usr/local/bin/cfn-signal -e 1 --stack ${AWS::StackName} --region ${AWS::Region} --resource LaunchConfiguration
+              exit 1
+            }
+
+            # Initialize the instance
+            /usr/local/bin/cfn-init -v --stack ${AWS::StackName} --resource LaunchConfiguration --region ${AWS::Region} || error_exit 'Failed to run cfn-init.'
+
+            # Start up the cfn-hup daemon to listen for changes
+            /usr/local/bin/cfn-hup || error_exit 'Failed to start cfn-hup'
+
+            #Signal the AutoScalingGroup when the product configuration is done
+            /usr/local/bin/cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource AutoScalingGroup
+
+            # Download/install AWS Cloudwatch Agent
+            curl https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O || error_exit 'Failed to download awslogs-setup'
+            chmod +x ./awslogs-agent-setup.py
+            ./awslogs-agent-setup.py -n -r ${AWS::Region} -c /etc/awslogs/awslogs.conf || error_exit 'Failed to run awslogs-setup'
+
+            # Configure awslogs to start on boot
+            update-rc.d awslogs defaults
+            update-rc.d awslogs start 20 3 4 5
+            service awslogs start
+            service awslogs status
+
+            # All is well so signal success
+            /usr/local/bin/cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource LaunchConfiguration
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+    - MountTarget1
+    - MountTarget2
+    Properties:
+      VPCZoneIdentifier:
+      - !Ref PrivateSubnet1ID
+      - !Ref PrivateSubnet2ID
+      LoadBalancerNames:
+      - !Ref LoadBalancer
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 90
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: '1'
+      MaxSize: '1'
+      DesiredCapacity: '1'
+      Tags:
+      - Key: Name
+        Value: !Ref InstanceName
+        PropagateAtLaunch: 'true'
+      - Key: Owner
+        Value: !Ref InstanceOwner
+        PropagateAtLaunch: 'true'
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: PT10M
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: '0'
+        MaxBatchSize: '1'
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+      - Key: Name
+        Value: FileSystem
+  MountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Ref PrivateSubnet1ID
+      SecurityGroups:
+      - !Ref MountTargetSecurityGroup
+  MountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Ref PrivateSubnet2ID
+      SecurityGroups:
+      - !Ref MountTargetSecurityGroup
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      CrossZone: true
+      LoadBalancerName:
+        Fn::Sub: iib-elb-${AWS::AccountId}
+      Listeners:
+      - InstancePort: '1414'
+        InstanceProtocol: TCP
+        LoadBalancerPort: '1414'
+        Protocol: TCP
+      - InstancePort: '9443'
+        InstanceProtocol: TCP
+        LoadBalancerPort: '9443'
+        Protocol: TCP
+      - InstancePort: '4417'
+        InstanceProtocol: TCP
+        LoadBalancerPort: '4417'
+        Protocol: TCP
+      - InstancePort: '7800'
+        InstanceProtocol: TCP
+        LoadBalancerPort: '7800'
+        Protocol: TCP
+      HealthCheck:
+        HealthyThreshold: '2'
+        Interval: '10'
+        Target: TCP:1414
+        Timeout: '5'
+        UnhealthyThreshold: '2'
+      SecurityGroups:
+      - !Ref IIBELBSecurityGroup
+      Subnets:
+      - !Ref PublicSubnet1ID
+      - !Ref PublicSubnet2ID
+Outputs:
+  IIBWebUiURL:
+    Description: Access the IBM Integration Bus Web UI via the Elastic Load Balancer.
+    Value:
+      Fn::Sub: https://${LoadBalancer.DNSName}:4417
+  IIBRestApiURL:
+    Description: Access the IBM Integration Bus REST API via the Elastic Load Balancer.
+    Value:
+      Fn::Sub: https://${LoadBalancer.DNSName}:4417/apiv1/properties
+  SampleApplication:
+    Description: Access a sample application on IBM Integration Bus via the Elastic Load Balancer.
+    Value:
+      Fn::Sub: http://${LoadBalancer.DNSName}:7800/iibping
+  MQWebConsoleURL:
+    Description: Access the IBM MQ Web Console via the Elastic Load Balancer.
+    Value:
+      Fn::Sub: https://${LoadBalancer.DNSName}:9443/ibmmq/console/
+  MQRestApiIURL:
+    Description: Access the the IBM MQ REST API via the Elastic Load Balancer.
+    Value:
+      Fn::Sub: https://${LoadBalancer.DNSName}:9443/ibmmq/rest/v1/admin/installation
+  ReadMeInfo:
+    Description: 'For more information and details visit:'
+    Value: https://github.com/ot4i/iib-fast-deploy-aws/
+...
