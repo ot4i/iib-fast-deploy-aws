@@ -1,0 +1,151 @@
+{
+  "_copyright": {
+    "copyright_text" : "(C) Copyright IBM Corporation 2017 Licensed under the Apache License, Version 2.0 (the 'License'); you may not use this file except in compliance with the License.You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an 'AS IS' BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License."
+  },
+  "variables": {
+    "aws_access_key": "{{env `TRAVIS_AWS_ACCESS_KEY`}}",
+    "aws_secret_key": "{{env `TRAVIS_AWS_SECRET_KEY`}}",
+    "travis_build_id": "{{env `TRAVIS_BUILD_ID`}}",
+    "copyToRegions": "eu-west-1,us-east-1,us-east-2,us-west-2,ap-southeast-2",
+    "build_uuid": ""
+  },
+  "provisioners": [{
+    "type": "file",
+    "source": "./scripts/configure-iib-aws.sh",
+    "destination": "/tmp/configure-iib-aws"
+  }, {
+    "type": "file",
+    "source": "./scripts/configure-broker.sh",
+    "destination": "/tmp/configure-broker"
+  }, {
+    "type": "file",
+    "source": "./services/systemd-iib-configure-broker.service",
+    "destination": "/tmp/iib-configure-broker.service"
+  }, {
+    "type": "file",
+    "source": "./scripts/check-iib-health-aws.sh",
+    "destination": "/tmp/check-iib-health-aws"
+  },{
+    "type": "file",
+    "source": "./services/systemd-iib-health-aws@.service",
+    "destination": "/tmp/iib-health-aws@.service"
+  }, {
+    "type": "file",
+    "source": "./scripts/configure-iib-security.sh",
+    "destination": "/tmp/configure-iib-security"
+  }, {
+    "type": "file",
+    "source": "./scripts/run-iib-cmd.sh",
+    "destination": "/tmp/run-iib-cmd"
+  }, {
+    "type": "file",
+    "source": "./scripts/configure-mq-aws.sh",
+    "destination": "/tmp/configure-mq-aws"
+  }, {
+    "type": "file",
+    "source": "./scripts/check-mq-health-aws.sh",
+    "destination": "/tmp/check-mq-health-aws"
+  }, {
+    "type": "file",
+    "source": "./services/systemd-mq-health-aws@.service",
+    "destination": "/tmp/mq-health-aws@.service"
+  }, {
+    "type": "file",
+    "source": "./services/systemd-mq@.service",
+    "destination": "/tmp/mq@.service"
+  }, {
+    "type": "file",
+    "source": "./scripts/configure-mq-console.sh",
+    "destination": "/tmp/configure-mq-console"
+  }, {
+    "type": "file",
+    "source": "./services/systemd-mq-console.service",
+    "destination": "/tmp/mq-console.service"
+  }, {
+    "type": "file",
+    "source": "./services/systemd-mq-console-setup.service",
+    "destination": "/tmp/mq-console-setup.service"
+  }, {
+    "type": "file",
+    "source": "./scripts/config.mqsc",
+    "destination": "/tmp/config.mqsc"
+  }, {
+    "type": "file",
+    "source": "./scripts/check-port-health-aws.sh",
+    "destination": "/tmp/check-port-health-aws"
+  }, {
+    "type": "file",
+    "source": "./services/systemd-port-health-aws.service",
+    "destination": "/tmp/port-health-aws.service"
+  }, {
+    "type": "file",
+    "source": "starter-registry.xml",
+    "destination": "/tmp/starter-registry.xml"
+  }, {
+    "type": "file",
+    "source": "./barfiles/Ping_HTTP_MQ.bar",
+    "destination": "/tmp/Ping_HTTP_MQ.bar"
+  }, {
+    "type": "shell",
+    "script": "./scripts/install-mq.sh",
+    "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E {{ .Path }}",
+    "environment_vars": [
+      "MQ_DIRECTORY=DebianMQServer",
+      "MQ_URL=s3://iib-fast-deploy-aws/images/mq/mqadv_dev904_ubuntu_x86-64.tar.gz",
+      "MQ_PACKAGES=ibmmq-runtime ibmmq-server ibmmq-java ibmmq-jre ibmmq-gskit ibmmq-web ibmmq-samples ibmmq-msg-.*",
+      "AWS_ACCESS_KEY={{user `aws_access_key`}}",
+      "AWS_SECRET_KEY={{user `aws_secret_key`}}",
+      "BUILD_UUID={{user `build_uuid`}}"
+    ]
+  }, {
+    "type": "shell",
+    "script": "./scripts/install-iib.sh",
+    "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E {{ .Path }}",
+    "environment_vars": [
+      "IIB_VERSION=iib-10.0.0.11",
+      "IIB_URL=s3://iib-fast-deploy-aws/images/iib/10.0.0.11-IIB-LINUX64-DEVELOPER.tar.gz",
+      "AWS_ACCESS_KEY={{user `aws_access_key`}}",
+      "AWS_SECRET_KEY={{user `aws_secret_key`}}",
+      "BUILD_UUID={{user `build_uuid`}}"
+    ]
+  }, {
+    "type": "shell",
+    "script": "./scripts/install-aws-ubuntu.sh",
+    "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E {{ .Path }}"
+  }],
+  "builders": [{
+    "type": "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "ami_name": "IBM Integration Bus v10.0.0.11 - {{isotime \"20060102-150405MST\"}}",
+    "instance_type": "t2.micro",
+    "region": "eu-west-1",
+    "source_ami_filter": {
+        "filters": {
+            "virtualization-type": "hvm",
+            "name": "*ubuntu-xenial-16.04-amd64-server-*",
+            "root-device-type": "ebs"
+        },
+        "owners": [
+            "099720109477"
+         ],
+        "most_recent": true
+    },
+    "ssh_username": "ubuntu",
+    "ami_description": "IBM Integration Bus v10.0.0.11 and IBM MQ v.9.0.4 on Ubuntu 16.04",
+    "ami_regions": "{{user `copyToRegions`}}",
+    "tags": {
+      "Name": "IBM Integration Bus v10.0.0.11 [BASELINE] - {{isotime \"20060102-150405\"}}",
+      "OS": "Ubuntu",
+      "OS version": "16.04",
+      "Owner": "ibm",
+      "BuildUUID": "{{user `build_uuid`}}"
+    },
+    "run_tags": {
+      "Owner": "ibm"
+    },
+    "run_volume_tags": {
+      "Owner": "ibm"
+    }
+  }]
+}
