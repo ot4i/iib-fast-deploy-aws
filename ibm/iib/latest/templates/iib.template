@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: This template creates a deployment of IBM Integration Bus version 10.0.0.10 on AWS EC2, with EFS,
+Description: This template creates a deployment of IBM Integration Bus version 10.0.0.11 on AWS EC2, with EFS,
   within an existing VPC and Bastion server environment. The IBM Integration Bus solution is configured
   to use an EFS for persistant storage of the Integration Node and Queue Manager. **WARNING** This template creates EC2
   instances and related resources. You will be billed for the AWS resources used if you create
   a stack from this template. IBM Integration Bus is licensed seperatley, please review the terms and conditions
-  here (www.my-license.com)
+  here (http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?la_formnum=&li_formnum=L-DFOX-APNKQH&title=IBM+Integration+Bus+for+Developers.&l=en)
   for further details. (qs-1nhqnkuii)
 Metadata:
   AWS::CloudFormation::Interface:
@@ -233,7 +233,7 @@ Parameters:
     MinLength: 1
     ConstraintDescription: You must provide a valid Key Pair name.
   LicenseAgreement:
-    Description: I have read and agree to the license terms for IBM Integration Bus (www.my-license.com).
+    Description: I have read and agree to the license terms for IBM Integration Bus (http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?la_formnum=&li_formnum=L-DFOX-APNKQH&title=IBM+Integration+Bus+for+Developers.&l=en).
     Type: String
     Default: '-'
     AllowedValues:
