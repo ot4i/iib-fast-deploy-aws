@@ -11,3 +11,5 @@ The facilities of the AWS Cloud environment are used to provide automatic restar
 This contains the CloudFormation templates which can be used to build stacks using the publically avaialable AMI with the developer edition of IBM Integration Bus and IBM MQ. A guide for this deployment can be found here: https://developer.ibm.com/integration/blog/2018/01/16/quickstart-deployment-ibm-integration-bus-aws-cloud/
 
 If you wish to build your own AMI, using differnt product versions, please follow the steps in this blog article:   https://developer.ibm.com/integration/blog/2018/01/16/building-amazon-machine-image-ibm-integration-bus/ and https://github.com/ot4i/iib-fast-deploy-aws
+
+
