@@ -1,10 +1,24 @@
+---
+# © Copyright IBM Corporation 2017
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: This template creates a deployment of IBM Integration Bus version 10.0.0.10 on AWS EC2, with EFS,
+Description: This template creates a deployment of IBM Integration Bus version 10.0.0.11 on AWS EC2, with EFS,
   within an existing VPC and Bastion server environment. The IBM Integration Bus solution is configured
   to use an EFS for persistant storage of the Integration Node and Queue Manager. **WARNING** This template creates EC2
   instances and related resources. You will be billed for the AWS resources used if you create
   a stack from this template. IBM Integration Bus is licensed seperatley, please review the terms and conditions
-  here (www.my-license.com)
+  here (http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?la_formnum=&li_formnum=L-DFOX-APNKQH&title=IBM+Integration+Bus+for+Developers.&l=en)
   for further details. (qs-1nhqnkuii)
 Metadata:
   AWS::CloudFormation::Interface:
@@ -219,7 +233,7 @@ Parameters:
     MinLength: 1
     ConstraintDescription: You must provide a valid Key Pair name.
   LicenseAgreement:
-    Description: I have read and agree to the license terms for IBM Integration Bus (www.my-license.com).
+    Description: I have read and agree to the license terms for IBM Integration Bus (http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?la_formnum=&li_formnum=L-DFOX-APNKQH&title=IBM+Integration+Bus+for+Developers.&l=en).
     Type: String
     Default: '-'
     AllowedValues:
@@ -311,15 +325,15 @@ Mappings:
     AMI:
       IIB10US1604: IIB_10_Ubuntu_1604
     ap-southeast-2:
-      IIB10US1604: ami-daea14b8
+      IIB10US1604: ami-fb3fc399
     eu-west-1:
-      IIB10US1604: ami-f5690d8c
+      IIB10US1604: ami-8373ecfa
     us-east-1:
-      IIB10US1604: ami-dc2f19a6
+      IIB10US1604: ami-6aa88810
     us-east-2:
-      IIB10US1604: ami-368da753
+      IIB10US1604: ami-9f240efa
     us-west-2:
-      IIB10US1604: ami-24833f5c
+      IIB10US1604: ami-92f848ea
 Conditions:
   GovCloudCondition:
     Fn::Equals:
@@ -514,11 +528,6 @@ Resources:
                 file = /HA/mqm/qmgrs/${IntegrationNodeName}_QM/errors/AMQERR03.LOG
                 log_group_name = IIBMainLogGroup
                 log_stream_name = {instance_id}-ha-mqm-errors
-                # Capture health checking logs
-                [HA/log/healthchecks.log]
-                file = /HA/log/healthchecks.log
-                log_group_name = IIBMainLogGroup
-                log_stream_name = {instance_id}-ha-log-healthchecks
               mode: '000400'
               owner: root
               group: root
@@ -573,7 +582,7 @@ Resources:
             #!/bin/bash
             # Update existing installed packages
             apt-get update -y
-            apt-get -fy upgrade && [ -f /var/run/reboot-required ] && shutdown -r now
+            apt-get upgrade -y
 
             # Helper function
             function error_exit
@@ -616,7 +625,7 @@ Resources:
       LoadBalancerNames:
       - !Ref LoadBalancer
       HealthCheckType: ELB
-      HealthCheckGracePeriod: 600
+      HealthCheckGracePeriod: 90
       LaunchConfigurationName: !Ref LaunchConfiguration
       MinSize: '1'
       MaxSize: '1'

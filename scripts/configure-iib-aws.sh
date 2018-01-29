@@ -35,12 +35,14 @@ configure_os_user()
 
   # Determine the login name of the user (assuming it exists already)
   # if user does not exist
-  if [ $(grep -c "^${USER_VAR}:" /etc/passwd) -eq 0 ]; then
+  if ! id ${!USER_VAR} 2>1 > /dev/null; then
     # create
-    useradd --gid ${GROUP_NAME} --home ${HOME} ${USER_VAR}
+    useradd --gid ${GROUP_NAME} --home ${HOME} ${!USER_VAR}
   fi
-  # Set the user's password
-  echo ${USER_VAR}:${PASSWORD} | chpasswd
+  # Change the user's password (if set)
+  if [ ! "${!PASSWORD}" == "" ]; then
+    echo ${!USER_VAR}:${!PASSWORD} | chpasswd
+  fi
 }
 
 # Subroutine used to check if the queue manager is running
@@ -72,14 +74,13 @@ fi
 
 # Create the iib user ID
 echo "Configuring admin user"
-configure_os_user mqbrkrs ${IIB_ADMIN_NAME} ${IIB_ADMIN_PASSWORD} /HA/iib
-usermod -aG sudo,root,mqm ${IIB_ADMIN_NAME}
+configure_os_user mqbrkrs IIB_ADMIN_NAME IIB_ADMIN_PASSWORD /HA/iib
 
 chown -R iib:mqbrkrs /HA/iib
+usermod -G mqm iib
 chmod -R ug+rwx /HA/iib
 
-configure_os_user mqbrkrs ${IIB_WEBUI_USERNAME} ${IIB_WEBUI_PASSWORD} /home/iibwebuiuser
-usermod -aG sudo,root ${IIB_WEBUI_USERNAME}
+configure_os_user mqbrkrs IIB_WEBUI_USERNAME IIB_WEBUI_PASSWORD /home/iibwebuiuser
 
 #Configuring the iib user profile
 echo ". ${IIB_INSTALL_DIR}/server/bin/mqsiprofile" > ~iib/.bash_profile
@@ -108,7 +109,7 @@ systemctl enable port-health-aws
 # Start the systemd services
 systemctl start iib-configure-broker
 
-/usr/local/bin/configure-iib-security ${IIB_NODE_NAME} ${IIB_INTEGRATION_SERVER_NAME} ${IIB_WEBUI_USERNAME} ${IIB_WEBUI_PASSWORD} ${MQ_QMGR_NAME} 
+/usr/local/bin/configure-iib-security ${IIB_NODE_NAME} ${IIB_INTEGRATION_SERVER_NAME} ${IIB_WEBUI_USERNAME} ${IIB_WEBUI_PASSWORD}
 
 # Deploy a simple application
 cmd="su - iib bash -c 'mqsichangeproperties ${IIB_NODE_NAME} -b httplistener -o HTTPListener -n startListener -v false'"

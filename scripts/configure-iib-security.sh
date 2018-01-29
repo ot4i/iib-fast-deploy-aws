@@ -20,11 +20,8 @@ IIB_NODE_NAME=$1
 IIB_INTEGRATION_SERVER_NAME=$2
 IIB_WEBUI_USERNAME=$3
 IIB_WEBUI_PASSWORD=$4
-MQ_QMGR_NAME=$5
 
 #Prerequisites for SSL
-
-echo "STOP LISTENER('SYSTEM.DEFAULT.LISTENER.TCP')" | runmqsc ${MQ_QMGR_NAME}
 
 #Create the keystore and a certificate
 mkdir -p /iib/keystore
@@ -94,4 +91,3 @@ eval $cmd
 
 sleep 15
 
-echo "START LISTENER('SYSTEM.DEFAULT.LISTENER.TCP')" | runmqsc ${MQ_QMGR_NAME}
