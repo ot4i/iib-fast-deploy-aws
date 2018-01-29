@@ -76,6 +76,7 @@ tar -zxvf ./*.tar.gz -C /images/mq
 groupadd --gid 1234 mqm
 useradd --uid 1234 --gid mqm --home-dir /HA/mqm mqm
 usermod -G mqm root
+usermod -aG sudo,root mqm
 
 # Configure file limits for the mqm user
 echo "mqm       hard  nofile     10240" >> /etc/security/limits.conf

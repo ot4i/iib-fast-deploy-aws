@@ -33,17 +33,15 @@ configure_os_user()
   local -r PASSWORD=$3
   # Home directory for the user
   local -r HOME=$4
-  # Determine the login name of the user (assuming it exists already)
 
+  # Determine the login name of the user (assuming it exists already)
   # if user does not exist
-  if ! id ${!USER_VAR} 2>1 > /dev/null; then
+  if [ $(grep -c "^${USER_VAR}:" /etc/passwd) -eq 0 ]; then
     # create
-    useradd --gid ${GROUP_NAME} --home ${HOME} ${!USER_VAR}
+    useradd --gid ${GROUP_NAME} --home ${HOME} ${USER_VAR}
   fi
-  # Change the user's password (if set)
-  if [ ! "${!PASSWORD}" == "" ]; then
-    echo ${!USER_VAR}:${!PASSWORD} | chpasswd
-  fi
+  # Set the user's password
+  echo ${USER_VAR}:${PASSWORD} | chpasswd
 }
 
 MQ_QMGR_NAME=$1
@@ -100,10 +98,13 @@ if ! getent group mqclient; then
   groupadd mqclient
 fi
 
-configure_os_user mqclient MQ_APP_NAME MQ_APP_PASSWORD /home/app
+
+configure_os_user mqclient ${MQ_APP_NAME} ${MQ_APP_PASSWORD} /home/app
+usermod -aG sudo,root ${MQ_APP_NAME}
 
 echo "Configuring admin user"
-configure_os_user mqm MQ_ADMIN_NAME MQ_ADMIN_PASSWORD /home/admin
+configure_os_user mqm ${MQ_ADMIN_NAME} ${MQ_ADMIN_PASSWORD} /home/admin
+usermod -aG sudo,root ${MQ_ADMIN_NAME}
 
 # Add a systemd drop-in to create a dependency on the mount point
 mkdir -p /etc/systemd/system/mq@${MQ_QMGR_NAME}.service.d
