@@ -35,7 +35,7 @@ Metadata:
       - PrivateSubnet2ID
       - PublicSubnet1ID
       - PublicSubnet2ID
-      - AdminConsoleAccessCIDR
+      - AdminConsoleAccessCIDRs
       - ClientAppAccessCIDR
     - Label:
         default: Bastion Configuration
@@ -325,15 +325,15 @@ Mappings:
     AMI:
       IIB10US1604: IIB_10_Ubuntu_1604
     ap-southeast-2:
-      IIB10US1604: ami-fb3fc399
+      IIB10US1604: ami-856e97e7
     eu-west-1:
-      IIB10US1604: ami-8373ecfa
+      IIB10US1604: ami-3604664f
     us-east-1:
-      IIB10US1604: ami-6aa88810
+      IIB10US1604: ami-78003a02
     us-east-2:
-      IIB10US1604: ami-9f240efa
+      IIB10US1604: ami-ed1e2b88
     us-west-2:
-      IIB10US1604: ami-92f848ea
+      IIB10US1604: ami-1d863e65
 Conditions:
   GovCloudCondition:
     Fn::Equals:
@@ -528,6 +528,11 @@ Resources:
                 file = /HA/mqm/qmgrs/${IntegrationNodeName}_QM/errors/AMQERR03.LOG
                 log_group_name = IIBMainLogGroup
                 log_stream_name = {instance_id}-ha-mqm-errors
+                # Capture health checking logs
+                [HA/log/healthchecks.log]
+                file = /HA/log/healthchecks.log
+                log_group_name = IIBMainLogGroup
+                log_stream_name = {instance_id}-ha-log-healthchecks
               mode: '000400'
               owner: root
               group: root
@@ -560,6 +565,7 @@ Resources:
               ignoreErrors: "true"
             02_RunIIBConfig:
               command: /usr/local/etc/iib-configure-script.sh
+              ignoreErrors: "true"
             03_RmMQConfig:
               command: rm /usr/local/etc/mq-configure-script.sh
             04_RmIIBConfig:
@@ -582,7 +588,7 @@ Resources:
             #!/bin/bash
             # Update existing installed packages
             apt-get update -y
-            apt-get upgrade -y
+            apt-get -fy upgrade && [ -f /var/run/reboot-required ] && shutdown -r now
 
             # Helper function
             function error_exit
@@ -625,7 +631,7 @@ Resources:
       LoadBalancerNames:
       - !Ref LoadBalancer
       HealthCheckType: ELB
-      HealthCheckGracePeriod: 90
+      HealthCheckGracePeriod: 600
       LaunchConfigurationName: !Ref LaunchConfiguration
       MinSize: '1'
       MaxSize: '1'

@@ -69,13 +69,14 @@ mkdir -p /images/mq
 mkdir -p /tmp/mq
 cd /tmp/mq
 aws s3 cp ${MQ_URL} /tmp/mq
-tar -zxvf ./*.tar.gz -C /images/mq
+tar -zxvf ./*.tar* -C /images/mq
 
 # Recommended: Create the mqm user ID with a fixed UID and group, so that the
 # file permissions work between different images
 groupadd --gid 1234 mqm
 useradd --uid 1234 --gid mqm --home-dir /HA/mqm mqm
 usermod -G mqm root
+usermod -aG sudo,root mqm
 
 # Configure file limits for the mqm user
 echo "mqm       hard  nofile     10240" >> /etc/security/limits.conf

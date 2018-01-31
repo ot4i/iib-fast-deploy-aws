@@ -27,7 +27,7 @@ getPortStatus()
 AWS_REGION=$(curl --silent http://169.254.169.254/latest/dynamic/instance-identity/document | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["region"]')
 AWS_INSTANCE_ID=$(curl --silent http://169.254.169.254/latest/meta-data/instance-id)
 while true; do
-  sleep 20
+  sleep 40
   if [ "$(getPortStatus [1]414)" != "LISTEN" ]; then
        echo "port 1414 not listening at $(date +%H%M%S)" >> /HA/log/healthchecks.log
        aws autoscaling set-instance-health --instance-id ${AWS_INSTANCE_ID}  --health-status Unhealthy --region ${AWS_REGION}
