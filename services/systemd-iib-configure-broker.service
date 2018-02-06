@@ -21,6 +21,7 @@ User=iib
 Group=mqbrkrs
 EnvironmentFile=/etc/.brokerconf
 ExecStart=/usr/local/bin/configure-broker ${IIB_NODE_NAME} ${QUEUE_MANAGER} ${IIB_INTEGRATION_SERVER_NAME}
+ExecStop=/usr/local/bin/run-iib-cmd mqsistop ${IIB_NODE_NAME}
 Type=forking
 KillMode=none
 LimitNOFILE=10240
