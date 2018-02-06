@@ -57,15 +57,15 @@ if [ ! -d "/HA/iib/mqsi/registry/${IIB_NODE_NAME}" ]; then
     echo "Creating the execution group"
     mqsicreateexecutiongroup ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME}
 else
-    # If an Integration Server has not been defined before, create one
-    if [ "$(check_eg_exists)" == "BIP1282I:" ]; then 
-        mqsicreateexecutiongroup ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME}
-    fi
-
     # If no integration nodes exist on the current instance, then add it 
     if [ "$(check_broker_exists)" == "BIP1281I:" ]; then 
         echo "Adding the broker intstance"
         mqsiaddbrokerinstance ${IIB_NODE_NAME} -e /HA/iib
+    fi
+
+    # If an Integration Server has not been defined before, create one
+    if [ "$(check_eg_exists)" == "BIP1282I:" ]; then 
+        mqsicreateexecutiongroup ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME}
     fi
 
     # Start the broker
