@@ -325,15 +325,15 @@ Mappings:
     AMI:
       IIB10US1604: IIB_10_Ubuntu_1604
     ap-southeast-2:
-      IIB10US1604: ami-689c670a
+      IIB10US1604: ami-45ec1727
     eu-west-1:
-      IIB10US1604: ami-5b91ff22
+      IIB10US1604: ami-b3a6cfca
     us-east-1:
-      IIB10US1604: ami-28dbd752
+      IIB10US1604: ami-05020c7f
     us-east-2:
-      IIB10US1604: ami-c2a693a7
+      IIB10US1604: ami-6392a706
     us-west-2:
-      IIB10US1604: ami-bc2ca9c4
+      IIB10US1604: ami-babb3fc2
 Conditions:
   GovCloudCondition:
     Fn::Equals:
