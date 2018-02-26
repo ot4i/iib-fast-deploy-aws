@@ -102,9 +102,6 @@ ${IIB_INSTALL_DIR}/iib make registry global accept license silently
 cp /tmp/configure-iib-aws /usr/local/bin
 chmod +x /usr/local/bin/configure-iib-aws
 
-cp /tmp/configure-broker /usr/local/bin
-chmod +x /usr/local/bin/configure-broker
-
 cp /tmp/run-iib-cmd /usr/local/bin
 chmod +x /usr/local/bin/run-iib-cmd
 

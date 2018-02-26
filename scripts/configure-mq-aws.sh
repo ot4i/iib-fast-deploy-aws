@@ -16,6 +16,8 @@
 
 # Run all the neccesary configuration for IBM Integration Bus in High Availability mode.
 
+echo configure-mq-aws started at $(date +%H:%M:%S)
+
 if [ "$#" -lt 3 ]; then
   echo "Usage: configure-mq-aws qmgr-name efs-id aws-region"
   exit 1
@@ -36,7 +38,7 @@ configure_os_user()
   # if user does not exist
   if [ $(grep -c "^${USER_VAR}:" /etc/passwd) -eq 0 ]; then
     # create
-    useradd --gid ${GROUP_NAME} --home ${HOME} ${USER_VAR}
+    useradd --system --gid ${GROUP_NAME} --home ${HOME} ${USER_VAR}
   fi
   # Set the user's password
   echo ${USER_VAR}:${PASSWORD} | chpasswd
@@ -69,6 +71,7 @@ chmod -R ug+rwx /HA/mqm
 
 mkdir -p /HA/log
 chmod 777 /HA/log/
+setfacl -Rdm g:mqm:rwx /HA/log
 
 # Create the queue manager if it doesn't already exist
 # Copy the mqwebuser configuration for the mqweb console
@@ -127,3 +130,6 @@ systemctl start mq-health-aws@${MQ_QMGR_NAME}
 
 runmqsc ${MQ_QMGR_NAME} < /etc/config.mqsc
 
+su mqm -c "setmqaut -m ${MQ_QMGR_NAME} -t qmgr -p mqapp +connect +inq"
+
+echo configure-mq-aws terminated at $(date +%H:%M:%S)

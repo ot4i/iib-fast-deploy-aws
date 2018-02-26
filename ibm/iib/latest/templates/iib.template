@@ -113,7 +113,7 @@ Parameters:
   AdminConsoleAccessCIDR:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
-    Description: The IP address range allowed to access the IBM Integration Bus Web User Interface via 
+    Description: The IP address range allowed to access the IBM Integration Bus Web User Interface via
       the ELB. We recommend that you set this value to a trusted IP range (0.0.0.0/0 is no restriction).
     Type: String
   BastionSecurityGroupID:
@@ -325,15 +325,15 @@ Mappings:
     AMI:
       IIB10US1604: IIB_10_Ubuntu_1604
     ap-southeast-2:
-      IIB10US1604: ami-45ec1727
+      IIB10US1604: ami-5dea2d3f
     eu-west-1:
-      IIB10US1604: ami-b3a6cfca
+      IIB10US1604: ami-75c1b80c
     us-east-1:
-      IIB10US1604: ami-05020c7f
+      IIB10US1604: ami-2503e158
     us-east-2:
-      IIB10US1604: ami-6392a706
+      IIB10US1604: ami-0a42756f
     us-west-2:
-      IIB10US1604: ami-babb3fc2
+      IIB10US1604: ami-30c14f48
 Conditions:
   GovCloudCondition:
     Fn::Equals:
@@ -365,7 +365,7 @@ Resources:
             - 'logs:CreateLogStream'
             - 'logs:PutLogEvents'
             - 'logs:DescribeLogStreams'
-            Resource: 
+            Resource:
               Fn::Sub:
               - arn:${Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:IIBMainLogGroup:*
               - Partition:
@@ -585,10 +585,35 @@ Resources:
       UserData:
         Fn::Base64:
           Fn::Sub: |
-            #!/bin/bash
-            # Update existing installed packages
-            apt-get update -y
-            apt-get -fy upgrade && [ -f /var/run/reboot-required ] && shutdown -r now
+           #!/bin/bash
+
+            # Check if the user-data is only set to execute once
+            awk '/scripts-user$/{f=1} /^Match/{exit} END{exit !f}' /etc/cloud/cloud.cfg
+            if [[ $? == 0 ]]; then
+
+              # Update existing installed packages
+              apt-get update -y
+
+              apt list --upgradable
+              #apt-mark hold resolvconf python3-update-manager update-manager-core
+
+              # Do an apt-get upgrade avoiding the blocking grub interactive prompt
+              DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade && [ -f /var/run/reboot-required ] && shutdown -r now
+
+              # General configuration: need to disable the deletion of semaphores
+              if [ "$(cat /etc/systemd/logind.conf | grep [R]emoveIPC= | awk -F '[=]' '{ print $2 }')" == "yes" ]; then
+                sed -i -e "s/#RemoveIPC=yes/RemoveIPC=no/g" /etc/systemd/logind.conf
+
+                # Flag Cloud-Init to always run user-scripts, so our code will execute again following the reboot
+                sed -i 's/scripts-user$/\[scripts-user, always\]/' /etc/cloud/cloud.cfg
+
+                shutdown -r now
+                exit 0
+              fi
+            else
+              # Set cloud-init back to only executing user-data once 
+              sed -i 's/\[scripts-user, always\]$/scripts-user/' /etc/cloud/cloud.cfg
+            fi
 
             # Helper function
             function error_exit
@@ -618,7 +643,7 @@ Resources:
             service awslogs status
 
             # All is well so signal success
-            /usr/local/bin/cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource LaunchConfiguration
+            /usr/local/bin/cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource LaunchConfigurations
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     DependsOn:

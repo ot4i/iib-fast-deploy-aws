@@ -15,12 +15,8 @@
     "destination": "/tmp/configure-iib-aws"
   }, {
     "type": "file",
-    "source": "./scripts/configure-broker.sh",
-    "destination": "/tmp/configure-broker"
-  }, {
-    "type": "file",
-    "source": "./services/systemd-iib-configure-broker.service",
-    "destination": "/tmp/iib-configure-broker.service"
+    "source": "./services/systemd-iib-start-broker@.service",
+    "destination": "/tmp/iib-start-broker@.service"
   }, {
     "type": "file",
     "source": "./scripts/check-iib-health-aws.sh",
@@ -75,6 +71,10 @@
     "destination": "/tmp/check-port-health-aws"
   }, {
     "type": "file",
+    "source": "./scripts/check-port-health-helper.sh",
+    "destination": "/tmp/check-port-health-helper"
+  }, {
+    "type": "file",
     "source": "./services/systemd-port-health-aws.service",
     "destination": "/tmp/port-health-aws.service"
   }, {
@@ -121,15 +121,15 @@
     "instance_type": "t2.micro",
     "region": "eu-west-1",
     "source_ami_filter": {
-        "filters": {
-            "virtualization-type": "hvm",
-            "name": "*ubuntu-xenial-16.04-amd64-server-*",
-            "root-device-type": "ebs"
-        },
-        "owners": [
-            "099720109477"
-         ],
-        "most_recent": true
+      "filters": {
+          "virtualization-type": "hvm",
+          "name": "*ubuntu-xenial-16.04-amd64-server-*",
+          "root-device-type": "ebs"
+      },
+      "owners": [
+          "099720109477"
+       ],
+      "most_recent": true
     },
     "ssh_username": "ubuntu",
     "ami_description": "IBM Integration Bus v10.0.0.11 and IBM MQ v.9.0.4 on Ubuntu 16.04",

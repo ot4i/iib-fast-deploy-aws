@@ -43,6 +43,9 @@ chmod +x /usr/local/bin/check-iib-health-aws
 cp /tmp/check-port-health-aws /usr/local/bin/
 chmod +x /usr/local/bin/check-port-health-aws
 
+cp /tmp/check-port-health-helper /usr/local/bin/
+chmod +x /usr/local/bin/check-port-health-helper
+
 # Install cloudformation bootstrap tooling
 easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
 
@@ -50,4 +53,4 @@ easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-
 cp /tmp/mq-health-aws@.service /etc/systemd/system/
 cp /tmp/iib-health-aws@.service /etc/systemd/system/
 cp /tmp/port-health-aws.service /etc/systemd/system/
-cp /tmp/iib-configure-broker.service /etc/systemd/system/
+cp /tmp/iib-start-broker@.service /etc/systemd/system/

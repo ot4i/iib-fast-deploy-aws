@@ -15,13 +15,20 @@
 # limitations under the License.
 
 # Run all the neccesary configuration for IBM Integration Bus in High Availability mode.
-set -e
+# This script will be run as part of the LaunchConfiguration and will configure the IBM Integration Bus 
+# integration node. This runs a different configuration, considering whether this is the first instance 
+# created in the environment, or it is an instance created after a failover coordinated by the Auto 
+# Scaling Group. In the latter case, the integration node already picks up the previous configuration 
+# from EFS and therefore only requires a few addtional steps to be configured.
+
+echo configure-iib-aws started at $(date +%H:%M:%S)
 
 if [ "$#" -lt 5 ]; then
   echo "Usage: configure-iib-aws iib-node-name integration-server-name qmgr-name file-system aws-region"
   exit 1
 fi
 
+# Subroutine used to configure a userid.
 configure_os_user()
 {
   # The group ID of the user to configure
@@ -37,7 +44,7 @@ configure_os_user()
   # if user does not exist
   if [ $(grep -c "^${USER_VAR}:" /etc/passwd) -eq 0 ]; then
     # create
-    useradd --gid ${GROUP_NAME} --home ${HOME} ${USER_VAR}
+    useradd --system --gid ${GROUP_NAME} --home ${HOME} ${USER_VAR}
   fi
   # Set the user's password
   echo ${USER_VAR}:${PASSWORD} | chpasswd
@@ -47,6 +54,22 @@ configure_os_user()
 queue_manager_state()
 {
  dspmq -n -m ${MQ_QMGR_NAME} | awk -F '[()]' '{ print $4 }'
+}
+
+# Subroutine used to check if the integration node is running
+check_active_broker(){
+    su - iib -c "mqsilist | awk 'NR==1{ print \$7 }'"
+}
+
+# Subroutine used to check if the integration node exists
+check_broker_exists()
+{
+    su - iib -c "mqsilist | awk 'NR==1{ print \$1 }'"
+}
+
+# Subroutine used to check if the integration server exists
+check_eg_exists(){
+    su - iib -c "mqsilist ${IIB_NODE_NAME} | awk 'NR==2{ print \$1 }'"
 }
 
 IIB_NODE_NAME=$1
@@ -90,32 +113,66 @@ if [ "$(queue_manager_state)" != "RUNNING" ]; then
 fi
 
 systemctl daemon-reload
-
 # Enable the systemd services to run at boot time
-
-#Create an EnvironmentFile containing ${IIB_NODE_NAME} and ${QUEUE_MANAGER}, used to create the broker
-echo "IIB_NODE_NAME=${IIB_NODE_NAME}" > /etc/.brokerconf
-echo "QUEUE_MANAGER=${MQ_QMGR_NAME}" >> /etc/.brokerconf
-echo "IIB_INTEGRATION_SERVER_NAME=${IIB_INTEGRATION_SERVER_NAME}"  >> /etc/.brokerconf
-systemctl enable iib-configure-broker
+systemctl enable iib-start-broker@${IIB_NODE_NAME}
 systemctl enable iib-health-aws@${IIB_NODE_NAME}
 systemctl enable port-health-aws
 
-# Start the systemd services
-systemctl start iib-configure-broker
+# Check to see if the broker has been previously created. If it has not, that means that this instance is the first one 
+# started in this system. Then, create the Integration Node, start it and create the Integration Server.
+if [ ! -d "/HA/iib/mqsi/registry/${IIB_NODE_NAME}" ]; then
 
-/usr/local/bin/configure-iib-security ${IIB_NODE_NAME} ${IIB_INTEGRATION_SERVER_NAME} ${IIB_WEBUI_USERNAME} ${IIB_WEBUI_PASSWORD} ${MQ_QMGR_NAME} 
+  echo "Creating the first broker"
+  su - iib -c "mqsicreatebroker ${IIB_NODE_NAME} -q ${MQ_QMGR_NAME} -e /HA/iib"
 
-# Deploy a simple application
-cmd="su - iib bash -c 'mqsichangeproperties ${IIB_NODE_NAME} -b httplistener -o HTTPListener -n startListener -v false'"
-eval $cmd
+  su - iib -c "mqsichangebroker ${IIB_NODE_NAME} -f all"
 
-cmd="su - iib bash -c 'mqsireload ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME}'"
-eval $cmd
+  #Start the broker. This is done as a systemd service, to ensure that the broker is started every time *this* instance is booted up.
+  systemctl start iib-start-broker@${IIB_NODE_NAME}
 
-cmd="su - iib bash -c 'mqsideploy ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME} -a /iib/application/Ping_HTTP_MQ.bar'"
-eval $cmd
+  # Wait until the Integration Node starts running
+  while [ ! "$(check_active_broker)" == "active"  ]; do
+    sleep 2
+  done
+
+  echo "Creating the execution group"
+  su - iib -c "mqsicreateexecutiongroup ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME}"
+
+  # Disable broker HTTP listener
+  su - iib -c "mqsichangeproperties ${IIB_NODE_NAME} -b httplistener -o HTTPListener -n startListener -v false"
+
+  # Configure SSL security on the IIB web UI
+  /usr/local/bin/configure-iib-security ${IIB_NODE_NAME} ${IIB_INTEGRATION_SERVER_NAME} ${IIB_WEBUI_USERNAME} ${IIB_WEBUI_PASSWORD} ${MQ_QMGR_NAME}
+
+  # Deploy a sample application
+  su - iib -c "mqsideploy ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME} -a /iib/application/Ping_HTTP_MQ.bar"
+
+# This means that the current instance is not the first one in the system and it has been started after a failover.
+else 
+
+    # If no integration nodes exist on the current instance, then add it 
+    if [ "$(check_broker_exists)" == "BIP1281I:" ]; then 
+        echo "Adding the broker intstance"
+        su - iib -c "mqsiaddbrokerinstance ${IIB_NODE_NAME} -e /HA/iib"
+    fi
+
+    #Start the broker. This is done as a systemd service, to ensure that the broker is started every time *this* instance is booted up.
+    systemctl start iib-start-broker@${IIB_NODE_NAME}
+
+    # Wait until the Integration Server starts running
+    while [ ! "$(check_active_broker)" == "active"  ]; do
+        sleep 2
+    done
+
+    # If an Integration Server has not been defined before, create one
+    if [ ! "$(check_eg_exists)" == "BIP1286I:" ]; then 
+        su - iib -c "mqsicreateexecutiongroup ${IIB_NODE_NAME} -e ${IIB_INTEGRATION_SERVER_NAME}"
+    fi
+
+fi
 
 # Start the port health checking only after all configuration is ready
 systemctl start port-health-aws
 systemctl start iib-health-aws@${IIB_NODE_NAME}
+
+echo configure-iib-aws finished at $(date +%H:%M:%S)

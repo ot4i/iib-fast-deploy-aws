@@ -228,7 +228,7 @@ Parameters:
     MinLength: 1
     ConstraintDescription: You must provide a valid Key Pair name.
   LicenseAgreement:
-    Description: I have read and agree to the license terms for IBM Integration Bus (http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?la_formnum=&li_formnum=L-DFOX-APNKQH&title=IBM+Integration+Bus+for+Developers.&l=en).
+    Description: I have read and agree to the license terms for IBM Integration Bus (www.my-license.com).
     Type: String
     Default: '-'
     AllowedValues:
