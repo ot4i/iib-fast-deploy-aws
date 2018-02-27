@@ -91,6 +91,7 @@ echo "iib       hard  nofile     10240" >> /etc/security/limits.conf
 echo "iib       soft  nofile     10240" >> /etc/security/limits.conf
 
 # Clean up all the downloaded files
+cd ..
 rm -rf /tmp/iib
 # Clean up unwanted files, to help ensure a smaller image file is created
 apt-get clean -y

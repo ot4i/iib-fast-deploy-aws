@@ -83,7 +83,7 @@
     "destination": "/tmp/starter-registry.xml"
   }, {
     "type": "file",
-    "source": "./barfiles/Ping_HTTP_MQ.bar",
+    "source": "./ibm/iib/latest/barfiles/Ping_HTTP_MQ.bar",
     "destination": "/tmp/Ping_HTTP_MQ.bar"
   }, {
     "type": "shell",
