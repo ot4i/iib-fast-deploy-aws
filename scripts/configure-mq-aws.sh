@@ -70,8 +70,8 @@ chown -R mqm:mqm /HA/mqm/*
 chmod -R ug+rwx /HA/mqm
 
 mkdir -p /HA/log
-chmod 777 /HA/log/
-setfacl -Rdm g:mqm:rwx /HA/log
+touch /HA/log/healthchecks.log
+chmod 766 /HA/log/healthchecks.log
 
 # Create the queue manager if it doesn't already exist
 # Copy the mqwebuser configuration for the mqweb console
